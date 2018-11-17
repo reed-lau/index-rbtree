@@ -9,7 +9,7 @@ typedef struct rbtree_node {
     int32_t parent;
     int32_t left;
     int32_t right;
-    int32_t color;
+    uint8_t color;
     int32_t value;
     // char    key[0];
     char    key[10];
@@ -174,6 +174,172 @@ void insert(rbtree_node_t *node)
 
     rbt_black(INDEX2NODE(*root));
 }
+
+static rbtree_node_t *rbtree_min(rbtree_node_t *node)
+{
+    while (node->left != sentinel) {
+        node = INDEX2NODE(node->left);
+    }
+
+    return node;
+}
+
+void rbtree_delete(rbtree_node_t *node)
+{
+    uint8_t red;
+    int32_t *root;
+    rbtree_node_t *subst, *temp, *w;
+
+    /* a binary tree delete */
+
+    root = &root1;
+
+    if (node->left == sentinel) {
+        temp = INDEX2NODE(node->right);
+        subst = node;
+    } else if (node->right == sentinel) {
+        temp = INDEX2NODE(node->left);
+        subst = node;
+    } else {
+        subst = rbtree_min(INDEX2NODE(node->right));
+
+        if (subst->left != sentinel) {
+            temp = INDEX2NODE(subst->left);
+        } else {
+            temp = INDEX2NODE(subst->right);
+        }
+    }
+
+    if (subst == INDEX2NODE(*root)) {
+        *root = NODE2INDEX(temp);
+        rbt_black(temp);
+
+        /* DEBUG stuff */
+        node->left = -1;
+        node->right = -1;
+        node->parent = -1;
+        // node->key = 0;
+
+        return;
+    }
+
+    red = rbt_is_red(subst);
+
+    if (subst == INDEX2NODE(INDEX2NODE(subst->parent)->left)) {
+        INDEX2NODE(subst->parent)->left = NODE2INDEX(temp);
+    } else {
+        INDEX2NODE(subst->parent)->right = NODE2INDEX(temp);
+    }
+
+    if (subst == node) {
+        temp->parent = subst->parent;
+    } else {
+        if (subst->parent == NODE2INDEX(node)) {
+            temp->parent = NODE2INDEX(subst);
+        } else {
+            temp->parent = subst->parent;
+        }
+
+        subst->left = node->left;
+        subst->right = node->right;
+        subst->parent = node->parent;
+        rbt_copy_color(subst, node);
+
+        if (node == INDEX2NODE(*root)) {
+            *root = NODE2INDEX(subst);
+        } else {
+            if (node == INDEX2NODE(INDEX2NODE(node->parent)->left)) {
+                INDEX2NODE(node->parent)->left = NODE2INDEX(subst);
+            } else {
+                INDEX2NODE(node->parent)->right = NODE2INDEX(subst);
+            }
+        }
+
+        if (subst->left != sentinel) {
+            INDEX2NODE(subst->left)->parent = NODE2INDEX(subst);
+        }
+
+        if (subst->right != sentinel) {
+            INDEX2NODE(subst->right)->parent = NODE2INDEX(subst);
+        }
+    }
+
+    /* DEBUG stuff */
+    node->left = -1;
+    node->right = -1;
+    node->parent = -1;
+    // node->key = 0;
+
+    if (red) {
+        return;
+    }
+
+    /* a delete fixup */
+
+    while (temp != INDEX2NODE(*root) && rbt_is_black(temp)) {
+
+        if (temp == INDEX2NODE(INDEX2NODE(temp->parent)->left)) {
+            w = INDEX2NODE(INDEX2NODE(temp->parent)->right);
+
+            if (rbt_is_red(w)) {
+                rbt_black(w);
+                rbt_red(INDEX2NODE(temp->parent));
+                left_rotate(root, INDEX2NODE(temp->parent));
+                w = INDEX2NODE(INDEX2NODE(temp->parent)->right);
+            }
+
+            if (rbt_is_black(INDEX2NODE(w->left)) && rbt_is_black(INDEX2NODE(w->right))) {
+                rbt_red(w);
+                temp = INDEX2NODE(temp->parent);
+            } else {
+                if (rbt_is_black(INDEX2NODE(w->right))) {
+                    rbt_black(INDEX2NODE(w->left));
+                    rbt_red(w);
+                    right_rotate(root, w);
+                    w = INDEX2NODE(INDEX2NODE(temp->parent)->right);
+                }
+
+                rbt_copy_color(w, INDEX2NODE(temp->parent));
+                rbt_black(INDEX2NODE(temp->parent));
+                rbt_black(INDEX2NODE(w->right));
+                left_rotate(root, INDEX2NODE(temp->parent));
+                temp = INDEX2NODE(*root);
+            }
+
+        } else {
+            w = INDEX2NODE(INDEX2NODE(temp->parent)->left);
+
+            if (rbt_is_red(w)) {
+                rbt_black(w);
+                rbt_red(INDEX2NODE(temp->parent));
+                right_rotate(root, INDEX2NODE(temp->parent));
+                w = INDEX2NODE(INDEX2NODE(temp->parent)->left);
+            }
+
+            if (rbt_is_black(INDEX2NODE(w->left)) && rbt_is_black(INDEX2NODE(w->right))) {
+                rbt_red(w);
+                temp = INDEX2NODE(temp->parent);
+
+            } else {
+                if (rbt_is_black(INDEX2NODE(w->left))) {
+                    rbt_black(INDEX2NODE(w->right));
+                    rbt_red(w);
+                    left_rotate(root, w);
+                    w = INDEX2NODE(INDEX2NODE(temp->parent)->left);
+                }
+
+                rbt_copy_color(w, INDEX2NODE(temp->parent));
+                rbt_black(INDEX2NODE(temp->parent));
+                rbt_black(INDEX2NODE(w->left));
+                right_rotate(root, INDEX2NODE(temp->parent));
+                temp = INDEX2NODE(*root);
+            }
+        }
+    }
+
+    rbt_black(temp);
+}
+
 
 void tr1(int32_t r)
 {
